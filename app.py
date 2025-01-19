@@ -7,6 +7,7 @@ from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sdfghjkolksaçoldf'
@@ -78,11 +79,10 @@ def index():
     estabelecimentos = Estabelecimento.query.filter_by(usuario_id=current_user.id).all()
     transacoes = Transacao.query.filter_by(usuario_id=current_user.id).order_by(Transacao.data.desc()).limit(10).all()
     
-    # Calcula total do mês atual
+    # Calcula total do ano atual
     hoje = datetime.now()
-    total_mes_atual = db.session.query(func.sum(Transacao.valor)).filter(
+    total_ano_atual = db.session.query(func.sum(Transacao.valor)).filter(
         Transacao.usuario_id == current_user.id,
-        func.extract('month', Transacao.data) == hoje.month,
         func.extract('year', Transacao.data) == hoje.year
     ).scalar() or 0
     
@@ -99,7 +99,7 @@ def index():
     ).order_by(
         func.extract('year', Transacao.data).desc(),
         func.extract('month', Transacao.data).desc()
-    ).limit(6).all()
+    ).limit(12).all()
     
     # Inverte a ordem para mostrar do mais antigo para o mais recente
     gastos_por_mes = gastos_por_mes[::-1]
@@ -120,7 +120,6 @@ def index():
         Transacao, Transacao.categoria_id == Categoria.id
     ).filter(
         Transacao.usuario_id == current_user.id,
-        func.extract('month', Transacao.data) == hoje.month,
         func.extract('year', Transacao.data) == hoje.year
     ).group_by(
         Categoria.nome
@@ -137,6 +136,7 @@ def index():
         Transacao.usuario_id == current_user.id,
         ~Transacao.estabelecimento.contains("Pagamento recebido"),
         ~Transacao.estabelecimento.contains("Desconto Antecipação"),
+        ~Transacao.estabelecimento.contains("Saldo restante da fatura anterior"),
         ~Transacao.estabelecimento.contains("Estorno de")
     ).first() is not None
     
@@ -145,13 +145,14 @@ def index():
                          estabelecimentos=estabelecimentos,
                          transacoes=transacoes,
                          tem_pendentes=tem_pendentes,
-                         total_mes_atual=total_mes_atual,
+                         total_ano_atual=total_ano_atual,
                          labels_meses=labels_meses,
                          valores_meses=valores_meses,
                          labels_categorias=labels_categorias,
                          valores_categorias=valores_categorias)
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload_file():
     if 'file' not in request.files:
         flash('Nenhum arquivo selecionado')
@@ -161,15 +162,65 @@ def upload_file():
     if file.filename == '':
         flash('Nenhum arquivo selecionado')
         return redirect(url_for('index'))
-
-    if file and file.filename.endswith('.csv'):
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    
+    if file:
+        # Salva o arquivo temporariamente
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        processar_arquivo(filepath)
-        flash('Arquivo processado com sucesso!')
-        return redirect(url_for('index'))
-
-    flash('Arquivo inválido')
+        
+        try:
+            # Lê o arquivo Excel
+            df = pd.read_excel(filepath)
+            
+            # Remove linhas que contêm "Saldo restante da fatura anterior"
+            df = df[~df['Descrição'].str.contains('Saldo restante da fatura anterior', case=False, na=False)]
+            
+            # Processa cada linha do arquivo
+            for _, row in df.iterrows():
+                data = datetime.strptime(str(row['Data']), '%Y-%m-%d %H:%M:%S').date()
+                estabelecimento = row['Descrição'].strip()
+                valor = float(row['Valor'])
+                
+                # Verifica se já existe uma transação idêntica
+                transacao_existente = Transacao.query.filter_by(
+                    data=data,
+                    estabelecimento=estabelecimento,
+                    valor=valor,
+                    usuario_id=current_user.id
+                ).first()
+                
+                if not transacao_existente:
+                    # Verifica se existe um estabelecimento cadastrado
+                    estabelecimento_obj = Estabelecimento.query.filter_by(
+                        nome=estabelecimento,
+                        usuario_id=current_user.id
+                    ).first()
+                    
+                    # Se existir estabelecimento, usa a categoria dele
+                    categoria_id = estabelecimento_obj.categoria_id if estabelecimento_obj else None
+                    
+                    # Cria nova transação
+                    nova_transacao = Transacao(
+                        data=data,
+                        estabelecimento=estabelecimento,
+                        valor=valor,
+                        categoria_id=categoria_id,
+                        usuario_id=current_user.id
+                    )
+                    db.session.add(nova_transacao)
+            
+            db.session.commit()
+            flash('Arquivo processado com sucesso!')
+            
+        except Exception as e:
+            flash(f'Erro ao processar arquivo: {str(e)}')
+            
+        finally:
+            # Remove o arquivo temporário
+            if os.path.exists(filepath):
+                os.remove(filepath)
+    
     return redirect(url_for('index'))
 
 @app.route('/categoria', methods=['POST'])
