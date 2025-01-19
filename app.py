@@ -257,10 +257,12 @@ def listar_transacoes():
     return render_template('transacoes.html', transacoes=transacoes)
 
 @app.route('/categorizacao-pendente')
+@login_required
 def categorizacao_pendente():
     # Busca transações sem categoria, excluindo registros específicos
     transacoes_sem_categoria = Transacao.query.filter(
         Transacao.categoria_id == None,
+        Transacao.usuario_id == current_user.id,
         ~Transacao.estabelecimento.contains("Pagamento recebido"),
         ~Transacao.estabelecimento.contains("Desconto Antecipação"),
         ~Transacao.estabelecimento.contains("Estorno de")
@@ -268,36 +270,47 @@ def categorizacao_pendente():
     
     # Agrupa por estabelecimento para não mostrar duplicados
     estabelecimentos_sem_categoria = set(t.estabelecimento for t in transacoes_sem_categoria)
+    
     # Busca categorias ordenadas por nome
-    categorias = Categoria.query.order_by(Categoria.nome).all()
+    categorias = Categoria.query.filter_by(
+        usuario_id=current_user.id
+    ).order_by(Categoria.nome).all()
     
     return render_template('categorizacao_pendente.html', 
                          estabelecimentos=estabelecimentos_sem_categoria,
                          categorias=categorias)
 
 @app.route('/categorizar-estabelecimento', methods=['POST'])
+@login_required
 def categorizar_estabelecimento():
     estabelecimento_nome = request.form.get('estabelecimento')
     categoria_id = request.form.get('categoria_id')
     
     if estabelecimento_nome and categoria_id:
-        # Cria novo estabelecimento
+        # Cria novo estabelecimento com o usuario_id
         estabelecimento = Estabelecimento(
             nome=estabelecimento_nome,
-            categoria_id=categoria_id
+            categoria_id=categoria_id,
+            usuario_id=current_user.id
         )
         db.session.add(estabelecimento)
         
         # Atualiza todas as transações deste estabelecimento
-        Transacao.query.filter_by(estabelecimento=estabelecimento_nome).update(
-            {Transacao.categoria_id: categoria_id}
-        )
+        Transacao.query.filter_by(
+            estabelecimento=estabelecimento_nome,
+            usuario_id=current_user.id
+        ).update({
+            Transacao.categoria_id: categoria_id
+        })
         
         db.session.commit()
         flash(f'Estabelecimento {estabelecimento_nome} categorizado com sucesso!')
     
     # Verifica se ainda existem estabelecimentos para categorizar
-    if Transacao.query.filter_by(categoria_id=None).first():
+    if Transacao.query.filter_by(
+        categoria_id=None,
+        usuario_id=current_user.id
+    ).first():
         return redirect(url_for('categorizacao_pendente'))
     return redirect(url_for('index'))
 
