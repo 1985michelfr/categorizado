@@ -6,10 +6,7 @@ content %}
     <div class="col-md-3">
       <div class="card stat-card">
         <div class="stat-label">Total de Gastos (Mês Atual)</div>
-        <div class="stat-value">
-          R$ {{ total_mes_atual|default('0.00') }}
-          <small class="trend-up ms-2">+14.8%</small>
-        </div>
+        <div class="stat-value">R$ {{ total_mes_atual|default('0.00') }}</div>
       </div>
     </div>
     <div class="col-md-3">
@@ -37,13 +34,17 @@ content %}
     <div class="col-md-8">
       <div class="card chart-container">
         <h5 class="card-title mb-4">Gastos por Mês</h5>
-        <canvas id="gastosPorMes"></canvas>
+        <div style="height: 300px">
+          <canvas id="gastosPorMes"></canvas>
+        </div>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card chart-container">
         <h5 class="card-title mb-4">Distribuição por Categoria</h5>
-        <canvas id="distribuicaoCategoria"></canvas>
+        <div style="height: 300px">
+          <canvas id="distribuicaoCategoria"></canvas>
+        </div>
       </div>
     </div>
   </div>

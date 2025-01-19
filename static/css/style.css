@@ -187,3 +187,9 @@ a.text-primary {
 a.text-primary:hover {
   text-decoration: underline;
 }
+
+/* Adicionar estilos para os containers dos gráficos */
+.chart-container > div {
+  position: relative;
+  width: 100%;
+}
