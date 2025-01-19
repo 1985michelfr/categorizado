@@ -1,12 +1,21 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from sqlalchemy import func
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
+from flask_mail import Mail, Message
+import secrets
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import requests
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
+from oauthlib.oauth2 import WebApplicationClient
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sdfghjkolksaçoldf'
@@ -30,6 +39,31 @@ login_manager.login_view = 'login'
 
 # Após criar a instância do SQLAlchemy
 migrate = Migrate(app, db)
+
+# Configuração do Flask-Mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'seu-email@gmail.com'  # Configure seu email
+app.config['MAIL_PASSWORD'] = 'sua-senha-de-app'     # Configure sua senha de app
+mail = Mail(app)
+
+# Remova a configuração anterior do Flask-Mail
+# Substitua por:
+SENDGRID_API_KEY = 'sua_chave_api_do_sendgrid'
+
+MAILGUN_API_KEY = os.environ.get('MAILGUN_API_KEY')
+MAILGUN_DOMAIN = os.environ.get('MAILGUN_DOMAIN')
+
+BREVO_API_KEY = 'sua_chave_api_do_brevo'
+
+# Configurações do Google OAuth
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
+
+# Cliente OAuth2
+client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -73,12 +107,11 @@ with app.app_context():
 @app.route('/')
 @login_required
 def index():
-    from datetime import datetime
-    
     # Dados básicos
     categorias = Categoria.query.filter_by(usuario_id=current_user.id).all()
     estabelecimentos = Estabelecimento.query.filter_by(usuario_id=current_user.id).all()
-    transacoes = Transacao.query.filter_by(usuario_id=current_user.id).order_by(Transacao.data.desc()).limit(10)
+    # Adicione .all() para executar a query
+    transacoes = Transacao.query.filter_by(usuario_id=current_user.id).order_by(Transacao.data.desc()).limit(10).all()
     
     # Calcula total do mês atual
     hoje = datetime.now()
@@ -555,6 +588,76 @@ def registro():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+@app.route('/login/google')
+def google_login():
+    # Encontrar o endpoint de autorização do Google
+    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+
+    # Construir a requisição para o Google
+    request_uri = client.prepare_request_uri(
+        authorization_endpoint,
+        redirect_uri=request.base_url + "/callback",
+        scope=["openid", "email", "profile"],
+    )
+    return redirect(request_uri)
+
+@app.route('/login/google/callback')
+def google_callback():
+    # Pegar o código de autorização do Google
+    code = request.args.get("code")
+    
+    # Encontrar o endpoint de token do Google
+    google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
+    token_endpoint = google_provider_cfg["token_endpoint"]
+
+    # Preparar e enviar a requisição para trocar o código por tokens
+    token_url, headers, body = client.prepare_token_request(
+        token_endpoint,
+        authorization_response=request.url,
+        redirect_url=request.base_url,
+        code=code
+    )
+    token_response = requests.post(
+        token_url,
+        headers=headers,
+        data=body,
+        auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
+    )
+
+    # Parsear os tokens
+    client.parse_request_body_response(json.dumps(token_response.json()))
+
+    # Pegar informações do usuário do Google
+    userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
+    uri, headers, body = client.add_token(userinfo_endpoint)
+    userinfo_response = requests.get(uri, headers=headers, data=body)
+
+    if userinfo_response.json().get("email_verified"):
+        google_id = userinfo_response.json()["sub"]
+        email = userinfo_response.json()["email"]
+        nome = userinfo_response.json()["given_name"]
+        picture = userinfo_response.json()["picture"]
+
+        # Procurar usuário no banco ou criar um novo
+        usuario = Usuario.query.filter_by(email=email).first()
+        if not usuario:
+            usuario = Usuario(
+                email=email,
+                nome=nome,
+                google_id=google_id,
+                profile_pic=picture
+            )
+            db.session.add(usuario)
+            db.session.commit()
+
+        # Fazer login
+        login_user(usuario)
+        return redirect(url_for('index'))
+    else:
+        flash("Email do Google não verificado")
+        return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True) 
