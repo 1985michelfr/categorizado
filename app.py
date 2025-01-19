@@ -508,21 +508,34 @@ def limpar_banco():
 @app.route('/categorias')
 @login_required
 def listar_categorias():
-    # Busca todas as categorias do usuário com contagem de estabelecimentos
-    categorias_info = db.session.query(
-        Categoria,
-        func.count(Estabelecimento.id).label('total_estabelecimentos'),
-        func.count(Transacao.id).label('total_transacoes'),
-        func.sum(Transacao.valor).label('total_valor')
-    ).outerjoin(
-        Estabelecimento
-    ).outerjoin(
-        Transacao
-    ).filter(
-        Categoria.usuario_id == current_user.id
-    ).group_by(
-        Categoria.id
-    ).all()
+    # Busca todas as categorias do usuário com contagem de estabelecimentos e transações
+    categorias_info = []
+    categorias = Categoria.query.filter_by(usuario_id=current_user.id).order_by(Categoria.nome).all()
+    
+    for categoria in categorias:
+        # Conta estabelecimentos
+        total_estabelecimentos = Estabelecimento.query.filter_by(
+            categoria_id=categoria.id,
+            usuario_id=current_user.id
+        ).count()
+        
+        # Conta transações e soma valores
+        transacoes_query = Transacao.query.filter_by(
+            categoria_id=categoria.id,
+            usuario_id=current_user.id
+        )
+        total_transacoes = transacoes_query.count()
+        total_valor = db.session.query(func.sum(Transacao.valor)).filter(
+            Transacao.categoria_id == categoria.id,
+            Transacao.usuario_id == current_user.id
+        ).scalar() or 0
+        
+        categorias_info.append({
+            'categoria': categoria,
+            'num_estabelecimentos': total_estabelecimentos,
+            'num_transacoes': total_transacoes,
+            'total_valor': total_valor
+        })
     
     return render_template('categorias.html', categorias=categorias_info)
 
