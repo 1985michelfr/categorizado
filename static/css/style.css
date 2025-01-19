@@ -1,0 +1,189 @@
+:root {
+  --bg-primary: #0a0b14;
+  --bg-secondary: #12142b;
+  --text-primary: #ffffff;
+  --text-secondary: #8b8d9b;
+  --accent: #8833ff;
+  --success: #16c784;
+  --danger: #ea3943;
+  --card-bg: rgba(20, 23, 52, 0.9);
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: "Inter", sans-serif;
+}
+
+.sidebar {
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+}
+
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.trend-up {
+  color: var(--success);
+}
+
+.trend-down {
+  color: var(--danger);
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  margin: 0.2rem 0;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent);
+  opacity: 0.9;
+}
+
+.chart-container {
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.table {
+  color: var(--text-primary);
+}
+
+.table thead th {
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.modal-content {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+}
+
+.form-control,
+.form-select {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--bg-primary);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 0.25rem rgba(136, 51, 255, 0.25);
+}
+
+.form-select option {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.badge {
+  padding: 0.5rem 1rem;
+}
+
+.btn-outline-secondary {
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.btn-outline-secondary:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+.alert {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.alert-info {
+  color: var(--text-primary);
+  border-left: 4px solid var(--accent);
+}
+
+/* Auth Pages */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: linear-gradient(
+    135deg,
+    var(--bg-primary) 0%,
+    var(--bg-secondary) 100%
+  );
+}
+
+.auth-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+}
+
+.input-group-text {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.alert-danger {
+  background-color: rgba(234, 57, 67, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+a.text-primary {
+  color: var(--accent) !important;
+  text-decoration: none;
+}
+
+a.text-primary:hover {
+  text-decoration: underline;
+}

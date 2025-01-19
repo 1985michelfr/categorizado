@@ -73,9 +73,20 @@ with app.app_context():
 @app.route('/')
 @login_required
 def index():
+    from datetime import datetime
+    
+    # Dados básicos
     categorias = Categoria.query.filter_by(usuario_id=current_user.id).all()
     estabelecimentos = Estabelecimento.query.filter_by(usuario_id=current_user.id).all()
     transacoes = Transacao.query.filter_by(usuario_id=current_user.id).order_by(Transacao.data.desc()).limit(10)
+    
+    # Calcula total do mês atual
+    hoje = datetime.now()
+    total_mes_atual = db.session.query(func.sum(Transacao.valor)).filter(
+        Transacao.usuario_id == current_user.id,
+        func.extract('month', Transacao.data) == hoje.month,
+        func.extract('year', Transacao.data) == hoje.year
+    ).scalar() or 0
     
     tem_pendentes = Transacao.query.filter(
         Transacao.categoria_id == None,
@@ -85,11 +96,12 @@ def index():
         ~Transacao.estabelecimento.contains("Estorno de")
     ).first() is not None
     
-    return render_template('index.html', 
+    return render_template('index.html',
                          categorias=categorias,
                          estabelecimentos=estabelecimentos,
                          transacoes=transacoes,
-                         tem_pendentes=tem_pendentes)
+                         tem_pendentes=tem_pendentes,
+                         total_mes_atual=total_mes_atual)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
