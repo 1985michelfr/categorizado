@@ -170,45 +170,65 @@ def upload_file():
         file.save(filepath)
         
         try:
-            # Lê o arquivo Excel
-            df = pd.read_excel(filepath)
+            # Tenta ler o arquivo baseado na extensão
+            if filename.endswith('.csv'):
+                df = pd.read_csv(filepath, encoding='utf-8')
+            else:
+                # Tenta diferentes engines do Excel
+                try:
+                    df = pd.read_excel(filepath, engine='openpyxl')
+                except:
+                    try:
+                        df = pd.read_excel(filepath, engine='xlrd')
+                    except:
+                        raise Exception('Formato de arquivo não suportado. Use .xlsx ou .csv')
             
             # Remove linhas que contêm "Saldo restante da fatura anterior"
             df = df[~df['Descrição'].str.contains('Saldo restante da fatura anterior', case=False, na=False)]
             
             # Processa cada linha do arquivo
             for _, row in df.iterrows():
-                data = datetime.strptime(str(row['Data']), '%Y-%m-%d %H:%M:%S').date()
-                estabelecimento = row['Descrição'].strip()
-                valor = float(row['Valor'])
-                
-                # Verifica se já existe uma transação idêntica
-                transacao_existente = Transacao.query.filter_by(
-                    data=data,
-                    estabelecimento=estabelecimento,
-                    valor=valor,
-                    usuario_id=current_user.id
-                ).first()
-                
-                if not transacao_existente:
-                    # Verifica se existe um estabelecimento cadastrado
-                    estabelecimento_obj = Estabelecimento.query.filter_by(
-                        nome=estabelecimento,
-                        usuario_id=current_user.id
-                    ).first()
+                try:
+                    # Tenta diferentes formatos de data
+                    try:
+                        data = pd.to_datetime(row['Data']).date()
+                    except:
+                        data = datetime.strptime(str(row['Data']), '%d/%m/%Y').date()
                     
-                    # Se existir estabelecimento, usa a categoria dele
-                    categoria_id = estabelecimento_obj.categoria_id if estabelecimento_obj else None
+                    estabelecimento = str(row['Descrição']).strip()
+                    valor = float(str(row['Valor']).replace('R$', '').replace('.', '').replace(',', '.').strip())
                     
-                    # Cria nova transação
-                    nova_transacao = Transacao(
+                    # Verifica se já existe uma transação idêntica
+                    transacao_existente = Transacao.query.filter_by(
                         data=data,
                         estabelecimento=estabelecimento,
                         valor=valor,
-                        categoria_id=categoria_id,
                         usuario_id=current_user.id
-                    )
-                    db.session.add(nova_transacao)
+                    ).first()
+                    
+                    if not transacao_existente:
+                        # Verifica se existe um estabelecimento cadastrado
+                        estabelecimento_obj = Estabelecimento.query.filter_by(
+                            nome=estabelecimento,
+                            usuario_id=current_user.id
+                        ).first()
+                        
+                        # Se existir estabelecimento, usa a categoria dele
+                        categoria_id = estabelecimento_obj.categoria_id if estabelecimento_obj else None
+                        
+                        # Cria nova transação
+                        nova_transacao = Transacao(
+                            data=data,
+                            estabelecimento=estabelecimento,
+                            valor=valor,
+                            categoria_id=categoria_id,
+                            usuario_id=current_user.id
+                        )
+                        db.session.add(nova_transacao)
+                
+                except Exception as e:
+                    flash(f'Erro ao processar linha: {str(e)}')
+                    continue
             
             db.session.commit()
             flash('Arquivo processado com sucesso!')
