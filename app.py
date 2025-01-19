@@ -192,9 +192,10 @@ def upload_file():
             
             # Verifica e mapeia as colunas necessárias
             colunas_necessarias = {
-                'data': ['Data', 'DATA', 'data'],
-                'descricao': ['Descrição', 'DESCRIÇÃO', 'Descricao', 'DESCRICAO', 'descricao', 'Estabelecimento', 'ESTABELECIMENTO'],
-                'valor': ['Valor', 'VALOR', 'valor']
+                'data': ['Data', 'DATA', 'data', 'date', 'DATE', 'Date'],
+                'descricao': ['Descrição', 'DESCRIÇÃO', 'Descricao', 'DESCRICAO', 'descricao', 
+                             'Estabelecimento', 'ESTABELECIMENTO', 'title', 'TITLE', 'Title'],
+                'valor': ['Valor', 'VALOR', 'valor', 'amount', 'AMOUNT', 'Amount']
             }
             
             colunas_encontradas = {}
@@ -208,8 +209,11 @@ def upload_file():
                     raise Exception(f'Coluna de {tipo} não encontrada. Nomes possíveis: {", ".join(possiveis_nomes)}')
                 colunas_encontradas[tipo] = coluna_encontrada
             
-            # Remove linhas que contêm "Saldo restante da fatura anterior"
-            df = df[~df[colunas_encontradas['descricao']].str.contains('Saldo restante da fatura anterior', case=False, na=False)]
+            # Remove linhas que contêm "Saldo restante da fatura anterior" ou "Pagamento recebido"
+            df = df[~df[colunas_encontradas['descricao']].str.contains('Saldo restante da fatura anterior|Pagamento recebido|Desconto Antecipação|Estorno de', 
+                                                                      case=False, 
+                                                                      na=False,
+                                                                      regex=True)]
             
             # Processa cada linha do arquivo
             for _, row in df.iterrows():
@@ -236,7 +240,7 @@ def upload_file():
                     valor_str = valor_str.replace('R$', '').replace(' ', '')
                     if ',' in valor_str and '.' in valor_str:
                         valor_str = valor_str.replace('.', '')
-                    valor = float(valor_str.replace(',', '.').strip())
+                    valor = abs(float(valor_str.replace(',', '.').strip()))  # Usa abs() para garantir valor positivo
                     
                     # Verifica se já existe uma transação idêntica
                     transacao_existente = Transacao.query.filter_by(
