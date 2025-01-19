@@ -172,7 +172,14 @@ def upload_file():
         try:
             # Tenta ler o arquivo baseado na extensão
             if filename.endswith('.csv'):
-                df = pd.read_csv(filepath, encoding='utf-8')
+                # Tenta diferentes encodings
+                try:
+                    df = pd.read_csv(filepath, encoding='utf-8')
+                except:
+                    try:
+                        df = pd.read_csv(filepath, encoding='latin1')
+                    except:
+                        df = pd.read_csv(filepath, encoding='iso-8859-1')
             else:
                 # Tenta diferentes engines do Excel
                 try:
@@ -183,20 +190,53 @@ def upload_file():
                     except:
                         raise Exception('Formato de arquivo não suportado. Use .xlsx ou .csv')
             
+            # Verifica e mapeia as colunas necessárias
+            colunas_necessarias = {
+                'data': ['Data', 'DATA', 'data'],
+                'descricao': ['Descrição', 'DESCRIÇÃO', 'Descricao', 'DESCRICAO', 'descricao', 'Estabelecimento', 'ESTABELECIMENTO'],
+                'valor': ['Valor', 'VALOR', 'valor']
+            }
+            
+            colunas_encontradas = {}
+            for tipo, possiveis_nomes in colunas_necessarias.items():
+                coluna_encontrada = None
+                for nome in possiveis_nomes:
+                    if nome in df.columns:
+                        coluna_encontrada = nome
+                        break
+                if coluna_encontrada is None:
+                    raise Exception(f'Coluna de {tipo} não encontrada. Nomes possíveis: {", ".join(possiveis_nomes)}')
+                colunas_encontradas[tipo] = coluna_encontrada
+            
             # Remove linhas que contêm "Saldo restante da fatura anterior"
-            df = df[~df['Descrição'].str.contains('Saldo restante da fatura anterior', case=False, na=False)]
+            df = df[~df[colunas_encontradas['descricao']].str.contains('Saldo restante da fatura anterior', case=False, na=False)]
             
             # Processa cada linha do arquivo
             for _, row in df.iterrows():
                 try:
                     # Tenta diferentes formatos de data
+                    data_str = str(row[colunas_encontradas['data']])
                     try:
-                        data = pd.to_datetime(row['Data']).date()
+                        data = pd.to_datetime(data_str).date()
                     except:
-                        data = datetime.strptime(str(row['Data']), '%d/%m/%Y').date()
+                        # Tenta diferentes formatos de data
+                        for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%d/%m/%y']:
+                            try:
+                                data = datetime.strptime(data_str, fmt).date()
+                                break
+                            except:
+                                continue
+                        else:
+                            raise Exception(f'Formato de data não reconhecido: {data_str}')
                     
-                    estabelecimento = str(row['Descrição']).strip()
-                    valor = float(str(row['Valor']).replace('R$', '').replace('.', '').replace(',', '.').strip())
+                    estabelecimento = str(row[colunas_encontradas['descricao']]).strip()
+                    valor_str = str(row[colunas_encontradas['valor']])
+                    
+                    # Limpa e converte o valor
+                    valor_str = valor_str.replace('R$', '').replace(' ', '')
+                    if ',' in valor_str and '.' in valor_str:
+                        valor_str = valor_str.replace('.', '')
+                    valor = float(valor_str.replace(',', '.').strip())
                     
                     # Verifica se já existe uma transação idêntica
                     transacao_existente = Transacao.query.filter_by(
