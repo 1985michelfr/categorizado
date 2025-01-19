@@ -76,7 +76,6 @@ def index():
     # Dados básicos
     categorias = Categoria.query.filter_by(usuario_id=current_user.id).all()
     estabelecimentos = Estabelecimento.query.filter_by(usuario_id=current_user.id).all()
-    # Adicione .all() para executar a query
     transacoes = Transacao.query.filter_by(usuario_id=current_user.id).order_by(Transacao.data.desc()).limit(10).all()
     
     # Calcula total do mês atual
@@ -86,6 +85,52 @@ def index():
         func.extract('month', Transacao.data) == hoje.month,
         func.extract('year', Transacao.data) == hoje.year
     ).scalar() or 0
+    
+    # Dados para o gráfico de gastos por mês
+    gastos_por_mes = db.session.query(
+        func.extract('month', Transacao.data).label('mes'),
+        func.extract('year', Transacao.data).label('ano'),
+        func.sum(Transacao.valor).label('total')
+    ).filter(
+        Transacao.usuario_id == current_user.id
+    ).group_by(
+        func.extract('year', Transacao.data),
+        func.extract('month', Transacao.data)
+    ).order_by(
+        func.extract('year', Transacao.data).desc(),
+        func.extract('month', Transacao.data).desc()
+    ).limit(6).all()
+    
+    # Inverte a ordem para mostrar do mais antigo para o mais recente
+    gastos_por_mes = gastos_por_mes[::-1]
+    
+    # Formata os dados para o gráfico
+    labels_meses = []
+    valores_meses = []
+    for mes in gastos_por_mes:
+        nome_mes = datetime(int(mes.ano), int(mes.mes), 1).strftime('%b/%Y')
+        labels_meses.append(nome_mes)
+        valores_meses.append(float(mes.total))
+    
+    # Dados para o gráfico de distribuição por categoria
+    gastos_por_categoria = db.session.query(
+        Categoria.nome,
+        func.sum(Transacao.valor).label('total')
+    ).join(
+        Transacao, Transacao.categoria_id == Categoria.id
+    ).filter(
+        Transacao.usuario_id == current_user.id,
+        func.extract('month', Transacao.data) == hoje.month,
+        func.extract('year', Transacao.data) == hoje.year
+    ).group_by(
+        Categoria.nome
+    ).all()
+    
+    labels_categorias = []
+    valores_categorias = []
+    for cat in gastos_por_categoria:
+        labels_categorias.append(cat.nome)
+        valores_categorias.append(float(cat.total))
     
     tem_pendentes = Transacao.query.filter(
         Transacao.categoria_id == None,
@@ -100,7 +145,11 @@ def index():
                          estabelecimentos=estabelecimentos,
                          transacoes=transacoes,
                          tem_pendentes=tem_pendentes,
-                         total_mes_atual=total_mes_atual)
+                         total_mes_atual=total_mes_atual,
+                         labels_meses=labels_meses,
+                         valores_meses=valores_meses,
+                         labels_categorias=labels_categorias,
+                         valores_categorias=valores_categorias)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -457,23 +506,84 @@ def limpar_banco():
     return redirect(url_for('index'))
 
 @app.route('/categorias')
+@login_required
 def listar_categorias():
-    # Busca todas as categorias e seus estabelecimentos
-    categorias = Categoria.query.order_by(Categoria.nome).all()
-    
-    # Para cada categoria, busca o total de estabelecimentos e transações
-    categorias_info = []
-    for categoria in categorias:
-        num_estabelecimentos = Estabelecimento.query.filter_by(categoria_id=categoria.id).count()
-        num_transacoes = Transacao.query.filter_by(categoria_id=categoria.id).count()
-        
-        categorias_info.append({
-            'categoria': categoria,
-            'num_estabelecimentos': num_estabelecimentos,
-            'num_transacoes': num_transacoes
-        })
+    # Busca todas as categorias do usuário com contagem de estabelecimentos
+    categorias_info = db.session.query(
+        Categoria,
+        func.count(Estabelecimento.id).label('total_estabelecimentos'),
+        func.count(Transacao.id).label('total_transacoes'),
+        func.sum(Transacao.valor).label('total_valor')
+    ).outerjoin(
+        Estabelecimento
+    ).outerjoin(
+        Transacao
+    ).filter(
+        Categoria.usuario_id == current_user.id
+    ).group_by(
+        Categoria.id
+    ).all()
     
     return render_template('categorias.html', categorias=categorias_info)
+
+@app.route('/editar-categoria', methods=['POST'])
+@login_required
+def editar_categoria():
+    categoria_id = request.form.get('categoria_id')
+    novo_nome = request.form.get('nome')
+    
+    if categoria_id and novo_nome:
+        categoria = Categoria.query.filter_by(
+            id=categoria_id, 
+            usuario_id=current_user.id
+        ).first()
+        
+        if categoria:
+            # Verifica se já existe outra categoria com o mesmo nome
+            categoria_existente = Categoria.query.filter(
+                Categoria.usuario_id == current_user.id,
+                Categoria.id != categoria_id,
+                func.lower(Categoria.nome) == func.lower(novo_nome)
+            ).first()
+            
+            if categoria_existente:
+                flash('Já existe uma categoria com este nome!')
+            else:
+                categoria.nome = novo_nome
+                db.session.commit()
+                flash('Categoria atualizada com sucesso!')
+        else:
+            flash('Categoria não encontrada!')
+    else:
+        flash('Dados inválidos!')
+        
+    return redirect(url_for('listar_categorias'))
+
+@app.route('/excluir-categoria/<int:categoria_id>', methods=['POST'])
+@login_required
+def excluir_categoria(categoria_id):
+    categoria = Categoria.query.filter_by(
+        id=categoria_id, 
+        usuario_id=current_user.id
+    ).first()
+    
+    if categoria:
+        # Verifica se existem transações ou estabelecimentos vinculados
+        tem_vinculos = db.session.query(
+            Transacao.query.filter_by(categoria_id=categoria_id).exists() |
+            Estabelecimento.query.filter_by(categoria_id=categoria_id).exists()
+        ).scalar()
+        
+        if tem_vinculos:
+            flash('Não é possível excluir uma categoria que possui transações ou estabelecimentos vinculados!')
+        else:
+            db.session.delete(categoria)
+            db.session.commit()
+            flash('Categoria excluída com sucesso!')
+    else:
+        flash('Categoria não encontrada!')
+        
+    return redirect(url_for('listar_categorias'))
 
 @app.route('/atualizar-categoria-transacao', methods=['POST'])
 def atualizar_categoria_transacao():

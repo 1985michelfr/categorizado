@@ -37,13 +37,13 @@ content %}
     <div class="col-md-8">
       <div class="card chart-container">
         <h5 class="card-title mb-4">Gastos por Mês</h5>
-        <canvas id="gastosChart"></canvas>
+        <canvas id="gastosPorMes"></canvas>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card chart-container">
         <h5 class="card-title mb-4">Distribuição por Categoria</h5>
-        <canvas id="categoriasChart"></canvas>
+        <canvas id="distribuicaoCategoria"></canvas>
       </div>
     </div>
   </div>
@@ -86,60 +86,84 @@ content %}
 {% endblock %} {% block extra_js %}
 <script>
   // Gráfico de Gastos por Mês
-  const ctx = document.getElementById("gastosChart").getContext("2d");
-  new Chart(ctx, {
-    type: "bar",
+  new Chart(document.getElementById('gastosPorMes'), {
+    type: 'line',
     data: {
-      labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"],
-      datasets: [
-        {
-          label: "Gastos Mensais",
-          data: [12000, 19000, 15000, 17000, 14000, 18000],
-          backgroundColor: "rgba(136, 51, 255, 0.5)",
-          borderColor: "rgba(136, 51, 255, 1)",
-          borderWidth: 1,
-        },
-      ],
+      labels: {{ labels_meses | tojson }},
+      datasets: [{
+        label: 'Gastos',
+        data: {{ valores_meses | tojson }},
+        borderColor: '#8833ff',
+        tension: 0.4,
+        borderWidth: 2,
+        pointBackgroundColor: '#8833ff'
+      }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       scales: {
         y: {
           beginAtZero: true,
           grid: {
-            color: "rgba(255, 255, 255, 0.1)",
+            color: 'rgba(255, 255, 255, 0.1)'
           },
+          ticks: {
+            color: '#8b8d9b'
+          }
         },
         x: {
           grid: {
-            display: false,
+            color: 'rgba(255, 255, 255, 0.1)'
           },
-        },
+          ticks: {
+            color: '#8b8d9b'
+          }
+        }
       },
-    },
+      plugins: {
+        legend: {
+          display: false
+        }
+      }
+    }
   });
 
-  // Gráfico de Categorias
-  const ctxPie = document.getElementById("categoriasChart").getContext("2d");
-  new Chart(ctxPie, {
-    type: "doughnut",
+  // Gráfico de Distribuição por Categoria
+  new Chart(document.getElementById('distribuicaoCategoria'), {
+    type: 'doughnut',
     data: {
-      labels: ["Alimentação", "Transporte", "Lazer", "Outros"],
-      datasets: [
-        {
-          data: [30, 20, 25, 25],
-          backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
-        },
-      ],
+      labels: {{ labels_categorias | tojson }},
+      datasets: [{
+        data: {{ valores_categorias | tojson }},
+        backgroundColor: [
+          '#8833ff',
+          '#16c784',
+          '#ea3943',
+          '#f5b300',
+          '#3861fb',
+          '#ff6b6b',
+          '#4caf50',
+          '#ff9800'
+        ]
+      }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: "right",
-        },
-      },
-    },
+          position: 'bottom',
+          labels: {
+            color: '#8b8d9b',
+            padding: 20,
+            font: {
+              size: 12
+            }
+          }
+        }
+      }
+    }
   });
 </script>
 {% endblock %}

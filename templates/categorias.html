@@ -160,40 +160,75 @@ content %}
           data-bs-dismiss="modal"
         ></button>
       </div>
-      <div class="modal-body">
-        <form method="POST" action="{{ url_for('editar_categoria') }}">
-          <input type="hidden" name="categoria_id" id="editCategoriaId" />
+      <form method="POST" action="{{ url_for('editar_categoria') }}">
+        <div class="modal-body">
+          <input type="hidden" id="editCategoriaId" name="categoria_id" />
           <div class="mb-3">
-            <label class="form-label">Nome da Categoria</label>
+            <label class="form-label">Nome</label>
             <input
               type="text"
               class="form-control"
-              name="nome"
               id="editCategoriaNome"
+              name="nome"
               required
             />
           </div>
-          <div class="text-end">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              data-bs-dismiss="modal"
-            >
-              Cancelar
-            </button>
-            <button type="submit" class="btn btn-primary">Salvar</button>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
-{% endblock %} {% block extra_js %}
+
+<!-- Modal Excluir Categoria -->
+<div class="modal fade" id="modalExcluirCategoria" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Excluir Categoria</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form id="formExcluirCategoria" method="POST">
+        <div class="modal-body">
+          <p>Tem certeza que deseja excluir esta categoria?</p>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-danger">Excluir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
   function editarCategoria(id, nome) {
     document.getElementById("editCategoriaId").value = id;
     document.getElementById("editCategoriaNome").value = nome;
-    new bootstrap.Modal(document.getElementById("modalEditarCategoria")).show();
+  }
+
+  function excluirCategoria(id) {
+    document.getElementById("formExcluirCategoria").action =
+      "{{ url_for('excluir_categoria', categoria_id=0) }}".replace("0", id);
   }
 </script>
 {% endblock %}
