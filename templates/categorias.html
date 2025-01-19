@@ -46,9 +46,11 @@ content %}
         <table class="table">
           <thead>
             <tr>
-              <th>Nome da Categoria</th>
-              <th class="text-center">Estabelecimentos</th>
-              <th class="text-center">Transações</th>
+              <th>Nome</th>
+              <th class="text-center d-none d-md-table-cell">
+                Estabelecimentos
+              </th>
+              <th class="text-center d-none d-md-table-cell">Transações</th>
               <th class="text-end">Ações</th>
             </tr>
           </thead>
@@ -61,23 +63,31 @@ content %}
                   {{ info.categoria.nome }}
                 </div>
               </td>
-              <td class="text-center">{{ info.num_estabelecimentos }}</td>
-              <td class="text-center">{{ info.num_transacoes }}</td>
+              <td class="text-center d-none d-md-table-cell">
+                {{ info.num_estabelecimentos }}
+              </td>
+              <td class="text-center d-none d-md-table-cell">
+                {{ info.num_transacoes }}
+              </td>
               <td class="text-end">
-                <button
-                  class="btn btn-sm btn-outline-info"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#estabelecimentos-{{ info.categoria.id }}"
-                >
-                  <i class="bi bi-list me-1"></i>
-                  Ver Estabelecimentos
-                </button>
-                <button
-                  class="btn btn-sm btn-outline-primary ms-2"
-                  onclick="editarCategoria('{{ info.categoria.id }}', '{{ info.categoria.nome }}')"
-                >
-                  <i class="bi bi-pencil"></i>
-                </button>
+                <div class="btn-group">
+                  <button
+                    class="btn btn-sm btn-outline-info"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#estabelecimentos-{{ info.categoria.id }}"
+                  >
+                    <i class="bi bi-list"></i>
+                    <span class="d-none d-md-inline ms-1">Ver</span>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    onclick="editarCategoria('{{ info.categoria.id }}', '{{ info.categoria.nome }}')"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarCategoria"
+                  >
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr>
