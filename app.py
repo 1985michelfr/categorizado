@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'sua_chave_secreta'
+app.config['SECRET_KEY'] = 'sdfghjkolksaçoldf'
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///despesas.db')
 # Se usar PostgreSQL, substitua 'postgres://' por 'postgresql://' na URL
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
