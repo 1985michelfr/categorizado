@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Detalhes da Categoria</title>
+  </head>
+  <body>
+    <h1>Detalhes da Categoria: {{ categoria.nome }}</h1>
+    <h2>Período: {{ mes }}/{{ ano }}</h2>
+
+    <h3>Total: R$ {{ "%.2f"|format(total) }}</h3>
+
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Estabelecimento</th>
+          <th>Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for transacao in transacoes %}
+        <tr>
+          <td>{{ transacao.data.strftime('%d/%m/%Y') }}</td>
+          <td>{{ transacao.estabelecimento }}</td>
+          <td>R$ {{ "%.2f"|format(transacao.valor) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <p>
+      <a href="{{ url_for('relatorio', mes=mes, ano=ano) }}"
+        >Voltar para o relatório</a
+      >
+    </p>
+  </body>
+</html>

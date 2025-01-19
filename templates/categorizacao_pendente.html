@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Categorização Pendente</title>
+  </head>
+  <body>
+    <h1>Estabelecimentos para Categorizar</h1>
+
+    {% with messages = get_flashed_messages() %} {% if messages %} {% for
+    message in messages %}
+    <div class="alert">{{ message }}</div>
+    {% endfor %} {% endif %} {% endwith %} {% if estabelecimentos %} {% for
+    estabelecimento in estabelecimentos %}
+    <div class="estabelecimento-form">
+      <h3>{{ estabelecimento }}</h3>
+      <form action="{{ url_for('categorizar_estabelecimento') }}" method="POST">
+        <input
+          type="hidden"
+          name="estabelecimento"
+          value="{{ estabelecimento }}"
+        />
+        <select name="categoria_id" required>
+          <option value="">Selecione uma categoria</option>
+          {% for categoria in categorias %}
+          <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">Categorizar</button>
+      </form>
+    </div>
+    {% endfor %} {% else %}
+    <p>Não há estabelecimentos pendentes de categorização!</p>
+    <a href="{{ url_for('index') }}">Voltar para página inicial</a>
+    {% endif %}
+  </body>
+</html>

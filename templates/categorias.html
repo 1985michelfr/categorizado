@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Lista de Categorias</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css"
+    />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <h2>Lista de Categorias</h2>
+
+      {% with messages = get_flashed_messages() %} {% if messages %} {% for
+      message in messages %}
+      <div class="alert alert-info">{{ message }}</div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Nome da Categoria</th>
+              <th>Estabelecimentos</th>
+              <th>Transações</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for info in categorias %}
+            <tr>
+              <td>{{ info.categoria.nome }}</td>
+              <td>{{ info.num_estabelecimentos }}</td>
+              <td>{{ info.num_transacoes }}</td>
+              <td>
+                <button
+                  class="btn btn-sm btn-outline-info"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#estabelecimentos-{{ info.categoria.id }}"
+                >
+                  <i class="bi bi-list"></i> Ver Estabelecimentos
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="4" class="p-0">
+                <div
+                  class="collapse"
+                  id="estabelecimentos-{{ info.categoria.id }}"
+                >
+                  <div class="card card-body m-2">
+                    <h6>Estabelecimentos desta categoria:</h6>
+                    {% if info.categoria.estabelecimentos %}
+                    <ul class="list-unstyled">
+                      {% for estabelecimento in info.categoria.estabelecimentos
+                      %}
+                      <li>{{ estabelecimento.nome }}</li>
+                      {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Nenhum estabelecimento cadastrado</p>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-3">
+        <a href="{{ url_for('index') }}" class="btn btn-primary">
+          <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
