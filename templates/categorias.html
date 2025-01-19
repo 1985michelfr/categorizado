@@ -47,6 +47,7 @@ content %}
           <thead>
             <tr>
               <th>Nome</th>
+              <th class="text-center d-none d-md-table-cell">Palavras-chave</th>
               <th class="text-center d-none d-md-table-cell">
                 Estabelecimentos
               </th>
@@ -58,9 +59,26 @@ content %}
             {% for info in categorias %}
             <tr>
               <td>
-                <div class="d-flex align-items-center">
-                  <i class="bi bi-folder me-2 text-warning"></i>
-                  {{ info.categoria.nome }}
+                <div class="d-flex flex-column">
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-folder me-2 text-warning"></i>
+                    {{ info.categoria.nome }}
+                  </div>
+                  {% if info.categoria.palavras_chave %}
+                  <div class="mt-2">
+                    {% for palavra in info.categoria.palavras_chave %}
+                    <span class="badge bg-secondary me-1">
+                      {{ palavra.palavra_chave }}
+                      <button
+                        type="button"
+                        class="btn-close btn-close-white ms-1"
+                        onclick="removerPalavraChave('{{ palavra.id }}')"
+                        style="font-size: 0.5rem"
+                      ></button>
+                    </span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
                 </div>
               </td>
               <td class="text-center d-none d-md-table-cell">
@@ -230,6 +248,53 @@ content %}
   </div>
 </div>
 
+<!-- Modal para adicionar palavra-chave -->
+<div class="modal fade" id="modalPalavraChave" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Adicionar Palavra-chave</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form method="POST" action="{{ url_for('adicionar_palavra_chave') }}">
+        <div class="modal-body">
+          <input
+            type="hidden"
+            name="categoria_id"
+            id="palavraChaveCategoriaId"
+          />
+          <div class="mb-3">
+            <label class="form-label">Palavra-chave</label>
+            <input
+              type="text"
+              class="form-control"
+              name="palavra_chave"
+              required
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">Adicionar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Formulário para remover palavra-chave -->
+<form id="formRemoverPalavraChave" method="POST" style="display: none"></form>
+
 <script>
   function editarCategoria(id, nome) {
     document.getElementById("editCategoriaId").value = id;
@@ -239,6 +304,19 @@ content %}
   function excluirCategoria(id) {
     document.getElementById("formExcluirCategoria").action =
       "{{ url_for('excluir_categoria', categoria_id=0) }}".replace("0", id);
+  }
+
+  function adicionarPalavraChave(categoriaId) {
+    document.getElementById("palavraChaveCategoriaId").value = categoriaId;
+    new bootstrap.Modal(document.getElementById("modalPalavraChave")).show();
+  }
+
+  function removerPalavraChave(palavraId) {
+    if (confirm("Tem certeza que deseja remover esta palavra-chave?")) {
+      const form = document.getElementById("formRemoverPalavraChave");
+      form.action = `/remover-palavra-chave/${palavraId}`;
+      form.submit();
+    }
   }
 </script>
 {% endblock %}

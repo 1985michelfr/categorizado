@@ -45,6 +45,7 @@ class Categoria(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     estabelecimentos = db.relationship('Estabelecimento', backref='categoria', lazy=True)
+    palavras_chave = db.relationship('PalavraChaveCategoria', backref='categoria', lazy=True)
     
     __table_args__ = (
         db.UniqueConstraint('nome', 'usuario_id', name='unique_nome_usuario'),
@@ -68,6 +69,16 @@ class Transacao(db.Model):
     categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'))
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
 
+class PalavraChaveCategoria(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    palavra_chave = db.Column(db.String(100), nullable=False)
+    categoria_id = db.Column(db.Integer, db.ForeignKey('categoria.id'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    __table_args__ = (
+        db.UniqueConstraint('palavra_chave', 'usuario_id', name='unique_palavra_usuario'),
+    )
+
 with app.app_context():
     db.create_all()
 
@@ -79,11 +90,14 @@ def index():
     estabelecimentos = Estabelecimento.query.filter_by(usuario_id=current_user.id).all()
     transacoes = Transacao.query.filter_by(usuario_id=current_user.id).order_by(Transacao.data.desc()).limit(10).all()
     
-    # Calcula total do ano atual
+    # Calcula total dos últimos 12 meses
     hoje = datetime.now()
-    total_ano_atual = db.session.query(func.sum(Transacao.valor)).filter(
+    data_inicio = hoje - timedelta(days=365)  # 12 meses atrás
+    
+    total_12_meses = db.session.query(func.sum(Transacao.valor)).filter(
         Transacao.usuario_id == current_user.id,
-        func.extract('year', Transacao.data) == hoje.year
+        Transacao.data >= data_inicio,
+        Transacao.data <= hoje
     ).scalar() or 0
     
     # Dados para o gráfico de gastos por mês
@@ -145,11 +159,22 @@ def index():
                          estabelecimentos=estabelecimentos,
                          transacoes=transacoes,
                          tem_pendentes=tem_pendentes,
-                         total_ano_atual=total_ano_atual,
+                         total_12_meses=total_12_meses,
                          labels_meses=labels_meses,
                          valores_meses=valores_meses,
                          labels_categorias=labels_categorias,
                          valores_categorias=valores_categorias)
+
+def encontrar_categoria_por_palavra_chave(estabelecimento, usuario_id):
+    """Busca uma categoria baseada nas palavras-chave cadastradas"""
+    palavras_chave = PalavraChaveCategoria.query.filter_by(
+        usuario_id=usuario_id
+    ).all()
+    
+    for palavra in palavras_chave:
+        if palavra.palavra_chave.lower() in estabelecimento.lower():
+            return palavra.categoria_id
+    return None
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -233,14 +258,15 @@ def upload_file():
                         else:
                             raise Exception(f'Formato de data não reconhecido: {data_str}')
                     
-                    estabelecimento = str(row[colunas_encontradas['descricao']]).strip()
+                    # Limpa o nome do estabelecimento removendo informações de parcelamento
+                    estabelecimento = limpar_nome_estabelecimento(str(row[colunas_encontradas['descricao']]).strip())
                     valor_str = str(row[colunas_encontradas['valor']])
                     
                     # Limpa e converte o valor
                     valor_str = valor_str.replace('R$', '').replace(' ', '')
                     if ',' in valor_str and '.' in valor_str:
                         valor_str = valor_str.replace('.', '')
-                    valor = abs(float(valor_str.replace(',', '.').strip()))  # Usa abs() para garantir valor positivo
+                    valor = abs(float(valor_str.replace(',', '.').strip()))
                     
                     # Verifica se já existe uma transação idêntica
                     transacao_existente = Transacao.query.filter_by(
@@ -251,16 +277,18 @@ def upload_file():
                     ).first()
                     
                     if not transacao_existente:
-                        # Verifica se existe um estabelecimento cadastrado
+                        # Primeiro tenta encontrar um estabelecimento já cadastrado
                         estabelecimento_obj = Estabelecimento.query.filter_by(
                             nome=estabelecimento,
                             usuario_id=current_user.id
                         ).first()
                         
-                        # Se existir estabelecimento, usa a categoria dele
-                        categoria_id = estabelecimento_obj.categoria_id if estabelecimento_obj else None
+                        if estabelecimento_obj:
+                            categoria_id = estabelecimento_obj.categoria_id
+                        else:
+                            # Se não encontrou estabelecimento, tenta encontrar por palavra-chave
+                            categoria_id = encontrar_categoria_por_palavra_chave(estabelecimento, current_user.id)
                         
-                        # Cria nova transação
                         nova_transacao = Transacao(
                             data=data,
                             estabelecimento=estabelecimento,
@@ -793,6 +821,72 @@ def registro():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+@app.route('/adicionar-palavra-chave', methods=['POST'])
+@login_required
+def adicionar_palavra_chave():
+    categoria_id = request.form.get('categoria_id')
+    palavra_chave = request.form.get('palavra_chave')
+    
+    if categoria_id and palavra_chave:
+        # Verifica se a categoria pertence ao usuário
+        categoria = Categoria.query.filter_by(
+            id=categoria_id, 
+            usuario_id=current_user.id
+        ).first()
+        
+        if categoria:
+            # Verifica se já existe esta palavra-chave
+            palavra_existente = PalavraChaveCategoria.query.filter(
+                PalavraChaveCategoria.usuario_id == current_user.id,
+                func.lower(PalavraChaveCategoria.palavra_chave) == func.lower(palavra_chave)
+            ).first()
+            
+            if palavra_existente:
+                flash('Esta palavra-chave já está cadastrada!')
+            else:
+                nova_palavra = PalavraChaveCategoria(
+                    palavra_chave=palavra_chave,
+                    categoria_id=categoria_id,
+                    usuario_id=current_user.id
+                )
+                db.session.add(nova_palavra)
+                
+                # Atualiza transações existentes que contêm esta palavra-chave
+                transacoes = Transacao.query.filter(
+                    Transacao.usuario_id == current_user.id,
+                    Transacao.categoria_id == None,
+                    Transacao.estabelecimento.ilike(f'%{palavra_chave}%')
+                ).all()
+                
+                for transacao in transacoes:
+                    transacao.categoria_id = categoria_id
+                
+                db.session.commit()
+                flash('Palavra-chave adicionada com sucesso!')
+        else:
+            flash('Categoria não encontrada!')
+    else:
+        flash('Dados inválidos!')
+        
+    return redirect(url_for('listar_categorias'))
+
+@app.route('/remover-palavra-chave/<int:palavra_id>', methods=['POST'])
+@login_required
+def remover_palavra_chave(palavra_id):
+    palavra = PalavraChaveCategoria.query.filter_by(
+        id=palavra_id,
+        usuario_id=current_user.id
+    ).first()
+    
+    if palavra:
+        db.session.delete(palavra)
+        db.session.commit()
+        flash('Palavra-chave removida com sucesso!')
+    else:
+        flash('Palavra-chave não encontrada!')
+    
+    return redirect(url_for('listar_categorias'))
 
 if __name__ == '__main__':
     app.run(debug=True) 
