@@ -134,9 +134,12 @@ def index():
         Transacao, Transacao.categoria_id == Categoria.id
     ).filter(
         Transacao.usuario_id == current_user.id,
-        func.extract('year', Transacao.data) == hoje.year
+        Transacao.data >= data_inicio,  # Últimos 12 meses
+        Transacao.data <= hoje
     ).group_by(
         Categoria.nome
+    ).order_by(
+        func.sum(Transacao.valor).desc()  # Ordena do maior para o menor valor
     ).all()
     
     labels_categorias = []
@@ -327,13 +330,13 @@ def adicionar_categoria():
         
         if categoria_existente:
             flash('Já existe uma categoria com este nome!')
-            return redirect(url_for('index'))
+            return redirect(url_for('listar_categorias'))
         
         categoria = Categoria(nome=nome, usuario_id=current_user.id)
         db.session.add(categoria)
         db.session.commit()
         flash('Categoria adicionada com sucesso!')
-    return redirect(url_for('index'))
+    return redirect(url_for('listar_categorias'))
 
 @app.route('/estabelecimento', methods=['POST'])
 @login_required
