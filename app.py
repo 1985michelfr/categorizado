@@ -888,5 +888,13 @@ def remover_palavra_chave(palavra_id):
     
     return redirect(url_for('listar_categorias'))
 
+@app.template_filter('format_currency')
+def format_currency(value):
+    """Formata um valor numérico para moeda (R$)"""
+    try:
+        return f"{float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (ValueError, TypeError):
+        return "0,00"
+
 if __name__ == '__main__':
     app.run(debug=True) 
