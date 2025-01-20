@@ -8,10 +8,21 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+
+load_dotenv()  # carrega variáveis de ambiente do arquivo .env
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sdfghjkolksaçoldf'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///despesas.db')
+
+# Configuração do banco de dados
+if os.environ.get('DATABASE_URL'):
+    # Configuração para o PostgreSQL (ElephantSQL)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+else:
+    # Configuração local para SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///categorizado.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Adicionado para evitar warnings
 
 # Se usar PostgreSQL, substitua 'postgres://' por 'postgresql://' na URL
