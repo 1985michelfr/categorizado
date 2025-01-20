@@ -16,9 +16,14 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sdfghjkolksaçoldf'
 
 # Configuração do banco de dados
-if os.environ.get('DATABASE_URL'):
-    # Configuração para o PostgreSQL (ElephantSQL)
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+if os.environ.get('MYSQL_USER'):
+    # Configuração para MySQL no PythonAnywhere
+    MYSQL_USER = os.environ.get('MYSQL_USER')
+    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD')
+    MYSQL_HOST = os.environ.get('MYSQL_HOST')
+    MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE')
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DATABASE}'
 else:
     # Configuração local para SQLite
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///categorizado.db'
